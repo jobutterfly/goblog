@@ -29,6 +29,40 @@ import (
 	"github.com/joho/godotenv"
 )
 
+type getCase struct {
+	name	string
+	req 	*http.Request
+	w	*httptest.ResponseRecorder
+	te	*template.Template
+	te_data	any
+}
+
+func testGetCases(t *testing.T, testCases []getCase, serveFunc func(w http.ResponseWriter, r *http.Request )) {
+    for _, tc := range testCases {
+	t.Run(tc.name, func(t *testing.T){
+	    ts , err := stringTemplate(tc.te, tc.te_data)
+	    if err != nil {
+		t.Errorf("Expected no errors, got %v", err)
+	    }
+
+	    serveFunc(tc.w, tc.req)
+	    res := tc.w.Result()
+	    defer res.Body.Close()
+
+	    responseBody, err := ioutil.ReadAll(res.Body) 
+	    if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	    }
+
+	    if string(responseBody) != ts {
+		t.Errorf("Expected data to be equal to ts: %s", string(responseBody))
+	    }
+	})
+    }
+
+}
+
+
 var Th *Handler
 
 func stringTemplate(tmpl *template.Template, data any) (string, error){
