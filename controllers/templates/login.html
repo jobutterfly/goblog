@@ -1,0 +1,30 @@
+{{ define "title" }} GOblog {{ end }}
+{{ define "imports" }}
+<link rel="stylesheet" href="/static/stylesheets/forms.css" />
+{{ end }}
+{{ define "body"}}
+<div class="form-container">
+	<form action="/login" method="POST">
+		<h2>Log In</h2>
+		<div>
+			<label for="name">Name</label>
+			<input required maxlength="255" type="text" id="name" name="name" value="{{ .Name }}"/>
+			{{ range .Errors }}
+			    {{ if eq "name" .Field }}
+			    <p class="error-message">{{ .Message }}</p>
+			    {{ end }}
+			{{ end }}
+		</div>
+		<div>
+			<label for="password">Password</label>
+			<input required maxlength="255" type="password" id="password" name="password" value="{{ .Password }}"/>
+			{{ range .Errors }}
+			    {{ if eq "password" .Field }}
+			    <p class="error-message">{{ .Message }}</p>
+			    {{ end }}
+			{{ end }}
+		</div>
+		<button type="submit" class="blue-button">Submit</button>
+	</form>
+</div>
+{{ end }}

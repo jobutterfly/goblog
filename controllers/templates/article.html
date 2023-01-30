@@ -1,0 +1,15 @@
+{{ define "title"}} GOblog {{ end }}
+{{ define "imports" }}
+<link rel="stylesheet" href="/static/stylesheets/article.css" />
+{{ end }}
+{{ define "body" }}
+<section class="article-section">
+    <div class="article-container">
+	<h1 class="article-title"><a href="/article/{{ .Article.ArticleID }}">{{ .Article.Title }}</a></h1>
+	<p class="article-date">{{ .Article.Date }}</p>
+	<div class="article-content-container">
+	    {{ template "content" . }}
+	</div>
+    </div>
+</section>
+{{ end }}

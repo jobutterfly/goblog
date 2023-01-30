@@ -1,0 +1,30 @@
+{{ define "title" }} GOblog {{ end }}
+{{ define "imports" }}
+<link rel="stylesheet" href="/static/stylesheets/forms.css" />
+{{ end }}
+{{ define "body"}}
+<div class="form-container">
+	<form action="/edit/{{ .Id}}" method="POST" enctype="multipart/form-data">
+		<h2>Edit article</h2>
+		<div>
+			<label for="title">Title</label>
+			<input required maxlength="255" type="text" id="title" name="title" value="{{ .Title }}"/>
+			{{ range .Errors }}
+			    {{ if eq "title" .Field }}
+			    <p class="error-message">{{ .Message }}</p>
+			    {{ end }}
+			{{ end }}
+		</div>
+		<div>
+			<label for="content">Content</label>
+			<textarea required maxlength="1200" id="content" name="content" rows="10">{{ .Content }}</textarea>
+			{{ range .Errors }}
+			    {{ if eq "content" .Field }}
+			    <p class="error-message">{{ .Message }}</p>
+			    {{ end }}
+			{{ end }}
+		</div>
+		<button type="submit" class="blue-button">Submit</button>
+	</form>
+</div>
+{{ end }}

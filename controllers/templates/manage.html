@@ -1,0 +1,25 @@
+{{ define "title"}} GOblog {{ end }}
+{{ define "imports" }}
+<link rel="stylesheet" href="/static/stylesheets/articles.css" />
+<link rel="stylesheet" href="/static/stylesheets/manage.css" />
+{{ end }}
+{{ define "body" }}
+<h2>Your blog</h2>
+<h2>Recent articles</h2>
+<section class="manage-buttons-container">
+    <div class="button-container"><a href="/logout" class="blue-button">Log out</a></div>
+    <div class="button-container"><a href="/post" class="blue-button">Post</a></div>
+</section>
+<section>
+	{{ range .Articles }}
+	<div class="article-container">
+		<h3><a href="/article/{{ .ArticleID }}">{{ .Title }}</a></h3>
+		<p>{{ .Date }}</p>
+		<div class="article-buttons-container">
+		    <div><a href="/edit/{{ .ArticleID }}">Edit</a></div>
+		    <div><a href="/delete/{{ .ArticleID }}">Delete</a></div>
+		</div>
+	</div>
+	{{ end }}
+</section>
+{{ end }}

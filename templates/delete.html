@@ -1,0 +1,13 @@
+{{ define "title" }} GOblog {{ end }}
+{{ define "imports" }}
+<link rel="stylesheet" href="/static/stylesheets/forms.css" />
+{{ end }}
+{{ define "body"}}
+<div class="form-container">
+	<form action="/delete/{{ .Article.ArticleID}}" method="POST">
+		<h2>Delete</h2>
+		<p>Are you sure you want to delete {{ .Article.Title }}</p>
+		<button type="submit" class="blue-button">Submit</button>
+	</form>
+</div>
+{{ end }}

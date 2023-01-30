@@ -1,0 +1,31 @@
+
+main h2 span {
+	color: blue;
+}
+
+.about-container {
+	padding: 0rem 1rem;
+	margin-bottom: 1rem;
+}
+
+.about-container p {
+	margin-top: 0.5rem;
+}
+
+.boards-list {
+	padding: 2rem;
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	text-align: center;
+	list-style-type: none;
+}
+
+.boards-list li a {
+	color: blue;
+	text-decoration: none;
+	font-size: 2rem;
+}
+
+.boards-list li a:hover {
+	color: blue;
+}

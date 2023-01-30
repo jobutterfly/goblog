@@ -1,0 +1,12 @@
+{{ define "title" }} GOblog {{ end }}
+{{ define "imports" }}
+<link rel="stylesheet" href="/static/stylesheets/forms.css" />
+{{ end }}
+{{ define "body"}}
+<div class="kill-container">
+    <section>
+	<h2>Error: {{ .Status }}</h2>
+	<p>{{ .Message }}</p>
+    </section>
+</div>
+{{ end }}

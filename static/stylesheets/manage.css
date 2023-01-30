@@ -1,0 +1,8 @@
+.manage-buttons-container {
+    display: flex;
+    padding-bottom: 1rem;
+}
+
+.manage-buttons-container div {
+    margin-right: 1rem;
+}

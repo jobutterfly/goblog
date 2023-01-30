@@ -1,0 +1,40 @@
+
+.button-post a {
+	color: blue;
+	text-decoration: none;
+}
+
+.blue-button {
+	font-size: 1.2rem;
+	background-color: transparent;
+	color: blue;
+	padding: 0.25rem;
+	border: solid 2px blue;
+	text-decoration: none;
+}
+
+.blue-button:hover {
+	background-color: blue;
+	color: white;
+	border: solid 2px white;
+	cursor: pointer;
+}
+
+.blue-button:active {
+	background-color: transparent;
+	color: blue;
+	border: solid 2px blue;
+}
+
+.button-container {
+	padding-top: 1rem;
+}
+
+
+
+
+
+
+
+
+

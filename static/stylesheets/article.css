@@ -1,0 +1,26 @@
+.article-section {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+.article-date{
+    margin-bottom: 1rem;
+}
+
+.article-container {
+    max-width: 800px;
+    justify-self: center;
+}
+
+.article-buttons-container {
+    display: flex;
+    padding-bottom: 1rem;
+}
+
+.article-buttons-container div {
+    margin-right: 1rem;
+}
+
+.par {
+    padding-bottom: 1rem;
+}

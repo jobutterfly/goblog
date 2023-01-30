@@ -1,0 +1,23 @@
+CREATE TABLE articles (
+	article_id INT AUTO_INCREMENT PRIMARY KEY,
+	title VARCHAR(255) NOT NULL,
+	content VARCHAR(10000) NOT NULL, 
+	date VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+);
+
+
+
+
+
+
+
+
+
+
+
