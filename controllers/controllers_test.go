@@ -30,11 +30,11 @@ import (
 )
 
 type getCase struct {
-	name	string
-	req 	*http.Request
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	te_data	any
+	name		string
+	req 		*http.Request
+	w		*httptest.ResponseRecorder
+	te		*template.Template
+	te_data		any
 }
 
 func testGetCases(t *testing.T, testCases []getCase, serveFunc func(w http.ResponseWriter, r *http.Request )) {
@@ -56,6 +56,64 @@ func testGetCases(t *testing.T, testCases []getCase, serveFunc func(w http.Respo
 
 	    if string(responseBody) != ts {
 		t.Errorf("Expected data to be equal to ts: %s\n\n got responseBody: %s", ts, string(responseBody))
+	    }
+	})
+    }
+}
+
+type postCase struct {
+	name 		string
+	withCookie	bool
+	withError	bool
+	body		io.Reader
+	w		*httptest.ResponseRecorder
+	te		*template.Template
+	te_data		any
+}
+
+func testPostCases(t *testing.T, reqPath string, testCases []postCase, serveFunc func(w http.ResponseWriter, r *http.Request )) {
+    for _, tc := range testCases {
+	t.Run(tc.name, func(t *testing.T){
+	    req := httptest.NewRequest(http.MethodPost, reqPath, tc.body)
+	    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	    if tc.withCookie {
+		token, err := auth.NewToken(1)
+		if err != nil {
+		    t.Errorf("Expected no errors, got %v", err)
+		}
+
+		req.AddCookie(&http.Cookie{
+		    Name: "auth",
+		    Value: token,
+		    HttpOnly: true,
+		})
+	    }
+
+	    serveFunc(tc.w, req)
+	    res := tc.w.Result()
+	    defer res.Body.Close()
+
+	    ts , err := stringTemplate(tc.te, tc.te_data)
+	    if err != nil {
+		t.Errorf("Expected no errors, got %v", err)
+	    }
+
+	    if tc.withError {
+		responseBody := tc.w.Body.String()
+
+		if cleanString(string(responseBody)) != cleanString(ts) {
+		    t.Errorf("expected response: \n%s\n\n to be equal to ts: \n\n %s", cleanString(string(responseBody)), cleanString(ts))
+		}
+	    } else {
+		url, err := res.Location()
+		if err != nil {
+		    t.Errorf("Expected no error, got %v", err)
+		}
+
+		if url.Path != "/manage" {
+		    t.Errorf("expected path to be /manage, got %s", url.Path)
+		}
 	    }
 	})
     }
@@ -368,21 +426,15 @@ func TestServePost(t *testing.T) {
 
 //--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
-    postTestCases := []struct{
-	name 	string
-	resPath	string
-	body	io.Reader
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.PostData
-    } {
+    postTestCases := []postCase {
 	{
 	    name: "post with no errors",
-	    resPath: "/manage",
 	    body: bytes.NewReader([]byte("title=a+new+post+with+a+very+interesting+title&content=this+comment+is+too+good+for+you+to+understand")),
 	    w: httptest.NewRecorder(), 
+	    withCookie: true,
+	    withError: false,
 	    te: utils.Serve("post"),
-	    data: models.PostData{
+	    te_data: models.PostData{
 		Title: "",
 		Content: "",
 		Errors: [2]models.FormError{
@@ -393,11 +445,12 @@ func TestServePost(t *testing.T) {
 	},
 	{
 	    name: "post with errors",
-	    resPath: "/post",
 	    body: bytes.NewReader([]byte("title=a+new+post+with+a+very+interesting+title&content=")),
 	    w: httptest.NewRecorder(), 
+	    withCookie: true,
+	    withError: true,
 	    te: utils.Serve("post"),
-	    data: models.PostData{
+	    te_data: models.PostData{
 		Title: "a new post with a very interesting title",
 		Content: "",
 		Errors: [2]models.FormError{
@@ -407,50 +460,8 @@ func TestServePost(t *testing.T) {
 	    },
 	},
     }
-    
-    for _, tc := range postTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodPost, "/post", tc.body)
-	    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	    token, err := auth.NewToken(1)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
 
-	    req.AddCookie(&http.Cookie{
-		Name: "auth",
-		Value: token,
-		HttpOnly: true,
-	    })
-
-	    Th.ServePost(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    if tc.name == "post with errors" {
-		responseBody := tc.w.Body.String() 
-
-		if cleanString(responseBody) != cleanString(ts) {
-		    t.Errorf("expected response to be equal to template string %s \n %s", responseBody, string(ts))
-		}
-	    } else {
-		url, err := res.Location()
-		if err != nil {
-		    t.Errorf("Expected no errors, got %v", err)
-		}
-
-		if url.Path != "/manage" {
-		    t.Errorf("expected path to be /manage but got " + url.Path)
-		}
-	    }
-
-	})
-    }
+    testPostCases(t, "/post", postTestCases, Th.ServePost)
 }
 
 
@@ -495,25 +506,16 @@ func TestServeLogin(t *testing.T) {
     }
 
     testGetCases(t, getTestCases, Th.ServePost)
-//--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
-    postTestCases := []struct{
-	name 	string
-	resPath	string
-	withE	bool
-	body	io.Reader
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.LoginData
-    } {
+    postTestCases := []postCase {
 	{
 	    name: "post with no errors",
-	    resPath: "/manage",
-	    withE: false,
+	    withCookie: false,
+	    withError: false,
 	    body: bytes.NewReader([]byte("name=" + name + "&password=" + pass)),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("login"),
-	    data: models.LoginData{
+	    te_data: models.LoginData{
 		Name: "",
 		Password: "",
 		Errors: [2]models.FormError{
@@ -524,12 +526,12 @@ func TestServeLogin(t *testing.T) {
 	},
 	{
 	    name: "post with errors, missing field",
-	    resPath: "/login",
-	    withE: true,
+	    withCookie: false,
+	    withError: true,
 	    body: bytes.NewReader([]byte("name=" + name + "&password=")),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("login"),
-	    data: models.LoginData{
+	    te_data: models.LoginData{
 		Name: name,
 		Password: "",
 		Errors: [2]models.FormError{
@@ -540,12 +542,12 @@ func TestServeLogin(t *testing.T) {
 	},
 	{
 	    name: "post with errors, wrong password",
-	    resPath: "/login",
-	    withE: true,
+	    withCookie: false,
+	    withError: true,
 	    body: bytes.NewReader([]byte("name=" + name + "&password=joemamma")),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("login"),
-	    data: models.LoginData{
+	    te_data: models.LoginData{
 		Name: name,
 		Password: "",
 		Errors: [2]models.FormError{
@@ -555,40 +557,9 @@ func TestServeLogin(t *testing.T) {
 	    },
 	},
     }
+
+    testPostCases(t, "/login", postTestCases, Th.ServePost)
     
-    for _, tc := range postTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodPost, "/login", tc.body)
-	    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	    Th.ServeLogin(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    if tc.withE {
-		responseBody := tc.w.Body.String()
-
-		if cleanString(string(responseBody)) != cleanString(ts) {
-		    t.Errorf("expected response to be equal to ts")
-		}
-	    } else {
-		url, err := res.Location()
-		if err != nil {
-		    t.Errorf("Expected no error, got %v", err)
-		}
-
-		if url.Path != "/manage" {
-		    t.Errorf("expected path to be /manage, got %s", url.Path)
-		}
-	    }
-
-	})
-    }
 }
 
 
@@ -650,21 +621,15 @@ func TestServeEdit(t *testing.T) {
 
 //--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
-    postTestCases := []struct{
-	name 	string
-	resPath	string
-	body	io.Reader
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.EditData
-    } {
+    postTestCases := []postCase {
 	{
 	    name: "post with no errors",
-	    resPath: "/manage",
+	    withCookie: true,
+	    withError: false,
 	    body: bytes.NewReader([]byte("title=a+new+post+with+a+very+interesting+title&content=this+comment+is+too+good+for+you+to+understand")),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("edit"),
-	    data: models.EditData{
+	    te_data: models.EditData{
 		Id: int(article.ArticleID),
 		Title: "",
 		Content: "",
@@ -676,11 +641,12 @@ func TestServeEdit(t *testing.T) {
 	},
 	{
 	    name: "post with errors",
-	    resPath: "/post",
+	    withCookie: true,
+	    withError: true,
 	    body: bytes.NewReader([]byte("title=a+new+post+with+a+very+interesting+title&content=")),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("edit"),
-	    data: models.EditData{
+	    te_data: models.EditData{
 		Id: int(article.ArticleID),
 		Title: "a new post with a very interesting title",
 		Content: "",
@@ -691,50 +657,8 @@ func TestServeEdit(t *testing.T) {
 	    },
 	},
     }
-    
-    for _, tc := range postTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodPost, "/edit/" + strconv.Itoa(int(article.ArticleID)), tc.body)
-	    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	    token, err := auth.NewToken(1)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
 
-	    req.AddCookie(&http.Cookie{
-		Name: "auth",
-		Value: token,
-		HttpOnly: true,
-	    })
-
-	    Th.ServeEdit(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    if tc.name == "post with errors" {
-		responseBody := tc.w.Body.String() 
-
-		if cleanString(responseBody) != cleanString(ts) {
-		    t.Errorf("expected response to be equal to template string %s \n %s", responseBody, string(ts))
-		}
-	    } else {
-		url, err := res.Location()
-		if err != nil {
-		    t.Errorf("Expected no errors, got %v", err)
-		}
-
-		if url.Path != "/manage" {
-		    t.Errorf("expected path to be /manage but got " + url.Path)
-		}
-	    }
-
-	})
-    }
+    testPostCases(t, "/edit/" + strconv.Itoa(int(article.ArticleID)), postTestCases, Th.ServeEdit)
 }
 
 
@@ -788,69 +712,21 @@ func TestServeDelete(t *testing.T) {
     testGetCases(t, getTestCases, Th.ServeDelete)
 //--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
-    postTestCases := []struct{
-	name 	string
-	resPath	string
-	body	io.Reader
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.DeleteData
-    } {
+    postTestCases := []postCase {
 	{
 	    name: "post with no errors",
-	    resPath: "/manage",
+	    withCookie: true,
+	    withError: false,
 	    body: bytes.NewReader([]byte("")),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("delete"),
-	    data: models.DeleteData{
+	    te_data: models.DeleteData{
 		Article: article,
 	    },
 	},
     }
 
-    for _, tc := range postTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodPost, "/delete/" + strconv.Itoa(int(article.ArticleID)), tc.body)
-	    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	    token, err := auth.NewToken(1)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    req.AddCookie(&http.Cookie{
-		Name: "auth",
-		Value: token,
-		HttpOnly: true,
-	    })
-
-	    Th.ServeDelete(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    if tc.name == "post with errors" {
-		responseBody := tc.w.Body.String() 
-
-		if cleanString(responseBody) != cleanString(ts) {
-		    t.Errorf("expected response to be equal to template string %s \n %s", responseBody, string(ts))
-		}
-	    } else {
-		url, err := res.Location()
-		if err != nil {
-		    t.Errorf("Expected no errors, got %v", err)
-		}
-
-		if url.Path != "/manage" {
-		    t.Errorf("expected path to be /manage but got " + url.Path)
-		}
-	    }
-
-	})
-    }
+    testPostCases(t, "/delete/" + strconv.Itoa(int(article.ArticleID)), postTestCases, Th.ServeDelete)
 }
 
 
