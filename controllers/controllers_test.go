@@ -505,7 +505,7 @@ func TestServeLogin(t *testing.T) {
 	},
     }
 
-    testGetCases(t, getTestCases, Th.ServePost)
+    testGetCases(t, getTestCases, Th.ServeLogin)
 
     postTestCases := []postCase {
 	{
@@ -558,7 +558,7 @@ func TestServeLogin(t *testing.T) {
 	},
     }
 
-    testPostCases(t, "/login", postTestCases, Th.ServePost)
+    testPostCases(t, "/login", postTestCases, Th.ServeLogin)
     
 }
 
