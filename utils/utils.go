@@ -7,6 +7,7 @@ import (
     "strings"
     "html/template"
     "path/filepath"
+    "math/rand"
     "log"
     "fmt"
     "time"
@@ -16,6 +17,8 @@ import (
     "github.com/enzdor/goblog/models"
     "github.com/enzdor/goblog/sqlc"
 )
+
+const alphabet = "abcdefghijklmnopqrstuvwxyz"
 
 func Serve(page string) *template.Template {
 	lp := filepath.Join("templates", "layout.html")
@@ -218,6 +221,26 @@ func FormatDate(t time.Time) string {
     y, m, d := t.Date()
 
     return fmt.Sprintf("%d-%d-%d", y, m, d)    
+}
+
+func randomString(n int) string {
+	var sb strings.Builder
+	k := len(alphabet)
+
+	for i := 0; i < n; i++ {
+		c := alphabet[rand.Intn(k)]
+		sb.WriteByte(c)
+	}
+
+	return sb.String()
+}
+
+func RandomArticle()(art sqlc.CreateArticleParams) {
+    art.Title = randomString(30);
+    art.Content = randomString(1000);
+    art.Date = strconv.Itoa(int(time.Now().Unix()));
+
+    return art
 }
 
 

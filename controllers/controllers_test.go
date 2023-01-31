@@ -14,7 +14,6 @@ import (
 	"os"
 	"context"
 	"strconv"
-	"time"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -208,29 +207,11 @@ func TestServeIndex(t *testing.T){
     }
 
     createArticles := []sqlc.CreateArticleParams{
-	{
-	    Title: "This is the first title",
-	    Content: "This is the first comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the second title",
-	    Content: "This is the second comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the third title",
-	    Content: "This is the third comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the fourth title",
-	    Content: "This is the fourth comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
+	utils.RandomArticle(),
+	utils.RandomArticle(),
+	utils.RandomArticle(),
+	utils.RandomArticle(),
     }
-
-    // populating db with threads that are going to be queried
 
     for _, tt := range createArticles {
 	_, err := Th.q.CreateArticle(context.Background(), tt)
@@ -273,26 +254,10 @@ func TestServeArticle(t *testing.T) {
     }
 
     createArticles := []sqlc.CreateArticleParams{
-	{
-	    Title: "This is the first title",
-	    Content: "This is the first comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the second title",
-	    Content: "This is the second comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the third title",
-	    Content: "This is the third comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the fourth title",
-	    Content: "This is the fourth comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
+	utils.RandomArticle(),
+	utils.RandomArticle(),
+	utils.RandomArticle(),
+	utils.RandomArticle(),
     }
 
     for _, tt := range createArticles {
@@ -551,11 +516,7 @@ func TestServeEdit(t *testing.T) {
 	t.Errorf("expected no error, got %v", err)
     }
 
-    createArticle := sqlc.CreateArticleParams{
-	    Title: "This is the first title",
-	    Content: "This is the first comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-    }
+    createArticle := utils.RandomArticle();
 
     _, err := Th.q.CreateArticle(context.Background(), createArticle)
     if err != nil {
@@ -635,11 +596,7 @@ func TestServeDelete(t *testing.T) {
 	t.Errorf("expected no error, got %v", err)
     }
 
-    createArticle := sqlc.CreateArticleParams{
-	    Title: "This is the first title",
-	    Content: "This is the first comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-    }
+    createArticle := utils.RandomArticle();
 
     _, err := Th.q.CreateArticle(context.Background(), createArticle)
     if err != nil {
@@ -691,26 +648,10 @@ func TestServeManage(t *testing.T) {
     }
 
     createThreads := []sqlc.CreateArticleParams{
-	{
-	    Title: "This is the first title",
-	    Content: "This is the first comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the second title",
-	    Content: "This is the second comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the third title",
-	    Content: "This is the third comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
-	{
-	    Title: "This is the fourth title",
-	    Content: "This is the fourth comment",
-	    Date: strconv.Itoa(int(time.Now().Unix())),
-	},
+	utils.RandomArticle(),
+	utils.RandomArticle(),
+	utils.RandomArticle(),
+	utils.RandomArticle(),
     }
 
     for _, tt := range createThreads {
