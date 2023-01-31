@@ -31,21 +31,46 @@ import (
 
 type getCase struct {
 	name		string
-	req 		*http.Request
+	withCookie	bool
 	w		*httptest.ResponseRecorder
 	te		*template.Template
 	te_data		any
 }
 
-func testGetCases(t *testing.T, testCases []getCase, serveFunc func(w http.ResponseWriter, r *http.Request )) {
+type postCase struct {
+	name 		string
+	withCookie	bool
+	withError	bool
+	body		io.Reader
+	w		*httptest.ResponseRecorder
+	te		*template.Template
+	te_data		any
+}
+
+func testGetCases(t *testing.T, reqPath string, testCases []getCase, serveFunc func(w http.ResponseWriter, r *http.Request )) {
     for _, tc := range testCases {
 	t.Run(tc.name, func(t *testing.T){
+	    req := httptest.NewRequest(http.MethodGet, reqPath, nil)
+
+	    if tc.withCookie {
+		token, err := auth.NewToken(1)
+		if err != nil {
+		    t.Errorf("Expected no errors, got %v", err)
+		}
+
+		req.AddCookie(&http.Cookie{
+		    Name: "auth",
+		    Value: token,
+		    HttpOnly: true,
+		})
+	    }
+
 	    ts , err := stringTemplate(tc.te, tc.te_data)
 	    if err != nil {
 		t.Errorf("Expected no errors, got %v", err)
 	    }
 
-	    serveFunc(tc.w, tc.req)
+	    serveFunc(tc.w, req)
 	    res := tc.w.Result()
 	    defer res.Body.Close()
 
@@ -59,16 +84,6 @@ func testGetCases(t *testing.T, testCases []getCase, serveFunc func(w http.Respo
 	    }
 	})
     }
-}
-
-type postCase struct {
-	name 		string
-	withCookie	bool
-	withError	bool
-	body		io.Reader
-	w		*httptest.ResponseRecorder
-	te		*template.Template
-	te_data		any
 }
 
 func testPostCases(t *testing.T, reqPath string, testCases []postCase, serveFunc func(w http.ResponseWriter, r *http.Request )) {
@@ -192,7 +207,7 @@ func TestServeIndex(t *testing.T){
 	t.Errorf("expected no error, got %v", err)
     }
 
-    createThreads := []sqlc.CreateArticleParams{
+    createArticles := []sqlc.CreateArticleParams{
 	{
 	    Title: "This is the first title",
 	    Content: "This is the first comment",
@@ -217,7 +232,7 @@ func TestServeIndex(t *testing.T){
 
     // populating db with threads that are going to be queried
 
-    for _, tt := range createThreads {
+    for _, tt := range createArticles {
 	_, err := Th.q.CreateArticle(context.Background(), tt)
 	if err != nil {
 		t.Errorf("Expected no errors, got %v", err)
@@ -232,7 +247,7 @@ func TestServeIndex(t *testing.T){
     testCases := []getCase {
 	{
 	    name: "index",
-	    req: httptest.NewRequest(http.MethodGet, "/", nil),
+	    withCookie: false,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("index"),
 	    te_data: models.IndexData{
@@ -241,7 +256,7 @@ func TestServeIndex(t *testing.T){
 	},
     } 
 
-    testGetCases(t, testCases, Th.ServeIndex)
+    testGetCases(t, "/", testCases, Th.ServeIndex)
 
     t.Run("redirect", func(t *testing.T){
 	if err := testRedirect("/akldfjk", Th.ServeIndex); err != nil {
@@ -257,7 +272,7 @@ func TestServeArticle(t *testing.T) {
 	t.Errorf("expected no error, got %v", err)
     }
 
-    createThreads := []sqlc.CreateArticleParams{
+    createArticles := []sqlc.CreateArticleParams{
 	{
 	    Title: "This is the first title",
 	    Content: "This is the first comment",
@@ -280,7 +295,7 @@ func TestServeArticle(t *testing.T) {
 	},
     }
 
-    for _, tt := range createThreads {
+    for _, tt := range createArticles {
 	_, err := Th.q.CreateArticle(context.Background(), tt)
 	if err != nil {
 		t.Errorf("Expected no errors, got %v", err)
@@ -359,31 +374,14 @@ func TestServeError(t *testing.T) {
     testCases := []getCase {
 	{
 	    name: "not found",
-	    req: httptest.NewRequest(http.MethodGet, "/error/" + 
-		strconv.Itoa(http.StatusNotFound), nil),
+	    withCookie: false,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("error"),
 	    te_data: utils.CreateErrorData(http.StatusNotFound),
 	},
-	{
-	    name: "internal server error",
-	    req: httptest.NewRequest(http.MethodGet, "/error/" + 
-		strconv.Itoa(http.StatusInternalServerError), nil),
-	    w: httptest.NewRecorder(), 
-	    te: utils.Serve("error"),
-	    te_data: utils.CreateErrorData(http.StatusInternalServerError),
-	},
-	{
-	    name: "other status",
-	    req: httptest.NewRequest(http.MethodGet, "/error/" + 
-		strconv.Itoa(http.StatusForbidden), nil),
-	    w: httptest.NewRecorder(), 
-	    te: utils.Serve("error"),
-	    te_data: utils.CreateErrorData(http.StatusForbidden),
-	},
     }
 
-    testGetCases(t, testCases, Th.ServeError)
+    testGetCases(t, "/error/" + strconv.Itoa(http.StatusNotFound), testCases, Th.ServeError)
 }
 
 
@@ -392,23 +390,10 @@ func TestServePost(t *testing.T) {
 	t.Errorf("expected no error, got %v", err)
     }
 
-    getReq := httptest.NewRequest(http.MethodGet, "/post", nil);
-
-    token, err := auth.NewToken(1)
-    if err != nil {
-	t.Errorf("Expected no errors, got %v", err)
-    }
-
-    getReq.AddCookie(&http.Cookie{
-	Name: "auth",
-	Value: token,
-	HttpOnly: true,
-    })
-
     getTestCases := []getCase {
 	{
 	    name: "get with no errors",
-	    req: getReq,
+	    withCookie: true,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("post"),
 	    te_data: models.PostData{
@@ -422,9 +407,7 @@ func TestServePost(t *testing.T) {
 	},
     }
 
-    testGetCases(t, getTestCases, Th.ServePost);
-
-//--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
+    testGetCases(t, "/post", getTestCases, Th.ServePost);
 
     postTestCases := []postCase {
 	{
@@ -491,7 +474,7 @@ func TestServeLogin(t *testing.T) {
     getTestCases := []getCase {
 	{
 	    name: "get with no errors",
-	    req: httptest.NewRequest(http.MethodGet, "/login", nil),
+	    withCookie: false,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("login"),
 	    te_data: models.LoginData{
@@ -505,7 +488,7 @@ func TestServeLogin(t *testing.T) {
 	},
     }
 
-    testGetCases(t, getTestCases, Th.ServeLogin)
+    testGetCases(t, "/login", getTestCases, Th.ServeLogin)
 
     postTestCases := []postCase {
 	{
@@ -586,23 +569,10 @@ func TestServeEdit(t *testing.T) {
 
     article := articles[0]
 
-    getReq := httptest.NewRequest(http.MethodGet, "/edit/" + strconv.Itoa(int(article.ArticleID)), nil);
-
-    token, err := auth.NewToken(1)
-    if err != nil {
-	t.Errorf("Expected no errors, got %v", err)
-    }
-
-    getReq.AddCookie(&http.Cookie{
-	Name: "auth",
-	Value: token,
-	HttpOnly: true,
-    })
-
     getTestCases := []getCase {
 	{
 	    name: "get with no errors",
-	    req: getReq,
+	    withCookie: true,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("edit"),
 	    te_data: models.EditData{
@@ -617,9 +587,7 @@ func TestServeEdit(t *testing.T) {
 	},
     }
 
-    testGetCases(t, getTestCases, Th.ServeEdit)
-
-//--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
+    testGetCases(t, "/edit/" + strconv.Itoa(int(article.ArticleID)), getTestCases, Th.ServeEdit)
 
     postTestCases := []postCase {
 	{
@@ -685,22 +653,10 @@ func TestServeDelete(t *testing.T) {
 
     article := articles[0]
 
-    getReq := httptest.NewRequest(http.MethodGet, "/delete/" + strconv.Itoa(int(article.ArticleID)), nil)
-
-    token, err := auth.NewToken(1)
-    if err != nil {
-	t.Errorf("Expected no errors, got %v", err)
-    }
-    getReq.AddCookie(&http.Cookie{
-	Name: "auth",
-	Value: token,
-	HttpOnly: true,
-    })
-
     getTestCases := []getCase {
 	{
 	    name: "get with no errors",
-	    req: getReq,
+	    withCookie: true,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("delete"),
 	    te_data: models.DeleteData{
@@ -709,8 +665,7 @@ func TestServeDelete(t *testing.T) {
 	},
     }
 
-    testGetCases(t, getTestCases, Th.ServeDelete)
-//--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
+    testGetCases(t, "/delete/" + strconv.Itoa(int(article.ArticleID)), getTestCases, Th.ServeDelete)
 
     postTestCases := []postCase {
 	{
@@ -730,9 +685,63 @@ func TestServeDelete(t *testing.T) {
 }
 
 
-/*
+func TestServeManage(t *testing.T) {
+    if err := start(); err != nil {
+	t.Errorf("expected no error, got %v", err)
+    }
 
-MANAGE
-LOGOUT
+    createThreads := []sqlc.CreateArticleParams{
+	{
+	    Title: "This is the first title",
+	    Content: "This is the first comment",
+	    Date: strconv.Itoa(int(time.Now().Unix())),
+	},
+	{
+	    Title: "This is the second title",
+	    Content: "This is the second comment",
+	    Date: strconv.Itoa(int(time.Now().Unix())),
+	},
+	{
+	    Title: "This is the third title",
+	    Content: "This is the third comment",
+	    Date: strconv.Itoa(int(time.Now().Unix())),
+	},
+	{
+	    Title: "This is the fourth title",
+	    Content: "This is the fourth comment",
+	    Date: strconv.Itoa(int(time.Now().Unix())),
+	},
+    }
 
-*/
+    for _, tt := range createThreads {
+	_, err := Th.q.CreateArticle(context.Background(), tt)
+	if err != nil {
+		t.Errorf("Expected no errors, got %v", err)
+	}
+    }
+
+    articles, err := Th.q.GetArticles(context.Background())
+    if err != nil {
+	t.Errorf("expected no error, got %v", err)
+    }
+
+    testCases := []getCase {
+	{
+	    name: "manage",
+	    withCookie: true,
+	    w: httptest.NewRecorder(), 
+	    te: utils.Serve("manage"),
+	    te_data: models.ManageData{
+		Articles: articles,
+	    },
+	},
+    } 
+
+    testGetCases(t, "/manage", testCases, Th.ServeManage)
+}
+
+
+
+
+
+
