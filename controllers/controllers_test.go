@@ -55,11 +55,10 @@ func testGetCases(t *testing.T, testCases []getCase, serveFunc func(w http.Respo
 	    }
 
 	    if string(responseBody) != ts {
-		t.Errorf("Expected data to be equal to ts: %s", string(responseBody))
+		t.Errorf("Expected data to be equal to ts: %s\n\n got responseBody: %s", ts, string(responseBody))
 	    }
 	})
     }
-
 }
 
 
@@ -172,13 +171,7 @@ func TestServeIndex(t *testing.T){
 	t.Errorf("expected no error, got %v", err)
     }
 
-    testCases := []struct {
-	name	string
-	req 	*http.Request
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	te_data	any
-    }{
+    testCases := []getCase {
 	{
 	    name: "index",
 	    req: httptest.NewRequest(http.MethodGet, "/", nil),
@@ -190,27 +183,7 @@ func TestServeIndex(t *testing.T){
 	},
     } 
 
-    for _, tc := range testCases {
-	t.Run(tc.name, func(t *testing.T){
-	    ts , err := stringTemplate(tc.te, tc.te_data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    Th.ServeIndex(tc.w, tc.req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    responseBody, err := ioutil.ReadAll(res.Body) 
-	    if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	    }
-
-	    if string(responseBody) != ts {
-		t.Errorf("Expected data to be equal to ts: %s", string(responseBody))
-	    }
-	})
-    }
+    testGetCases(t, testCases, Th.ServeIndex)
 
     t.Run("redirect", func(t *testing.T){
 	if err := testRedirect("/akldfjk", Th.ServeIndex); err != nil {
@@ -221,7 +194,7 @@ func TestServeIndex(t *testing.T){
 
 }
 
-func TestServeBoard(t *testing.T) {
+func TestServeArticle(t *testing.T) {
     if err := start(); err != nil {
 	t.Errorf("expected no error, got %v", err)
     }
@@ -325,57 +298,34 @@ func TestServeError(t *testing.T) {
 	t.Errorf("expected no error, got %v", err)
     }
 
-    testCases := []struct{
-	name 	string
-	status	int
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-    } {
+    testCases := []getCase {
 	{
 	    name: "not found",
-	    status: http.StatusNotFound,
+	    req: httptest.NewRequest(http.MethodGet, "/error/" + 
+		strconv.Itoa(http.StatusNotFound), nil),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("error"),
+	    te_data: utils.CreateErrorData(http.StatusNotFound),
 	},
 	{
 	    name: "internal server error",
-	    status: http.StatusInternalServerError,
+	    req: httptest.NewRequest(http.MethodGet, "/error/" + 
+		strconv.Itoa(http.StatusInternalServerError), nil),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("error"),
+	    te_data: utils.CreateErrorData(http.StatusInternalServerError),
 	},
 	{
 	    name: "other status",
-	    status: http.StatusForbidden,
+	    req: httptest.NewRequest(http.MethodGet, "/error/" + 
+		strconv.Itoa(http.StatusForbidden), nil),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("error"),
+	    te_data: utils.CreateErrorData(http.StatusForbidden),
 	},
     }
 
-    for _, tc := range testCases {
-	t.Run(tc.name, func(t *testing.T){
-	    data := utils.CreateErrorData(tc.status)
-
-	    req := httptest.NewRequest(http.MethodGet, "/error/" + strconv.Itoa(tc.status), nil)
-
-	    ts , err := stringTemplate(tc.te, data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    Th.ServeError(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    responseBody, err := ioutil.ReadAll(res.Body) 
-	    if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	    }
-
-	    if string(responseBody) != ts {
-		t.Errorf("Expected data to be equal to ts: %s", string(responseBody))
-	    }
-	})
-    }
+    testGetCases(t, testCases, Th.ServeError)
 }
 
 
@@ -384,17 +334,26 @@ func TestServePost(t *testing.T) {
 	t.Errorf("expected no error, got %v", err)
     }
 
-    getTestCases := []struct{
-	name 	string
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.PostData
-    } {
+    getReq := httptest.NewRequest(http.MethodGet, "/post", nil);
+
+    token, err := auth.NewToken(1)
+    if err != nil {
+	t.Errorf("Expected no errors, got %v", err)
+    }
+
+    getReq.AddCookie(&http.Cookie{
+	Name: "auth",
+	Value: token,
+	HttpOnly: true,
+    })
+
+    getTestCases := []getCase {
 	{
 	    name: "get with no errors",
+	    req: getReq,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("post"),
-	    data: models.PostData{
+	    te_data: models.PostData{
 		Title: "",
 		Content: "",
 		Errors: [2]models.FormError{
@@ -405,39 +364,8 @@ func TestServePost(t *testing.T) {
 	},
     }
 
-    for _, tc := range getTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodGet, "/post", nil)
+    testGetCases(t, getTestCases, Th.ServePost);
 
-	    token, err := auth.NewToken(1)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-	    req.AddCookie(&http.Cookie{
-		Name: "auth",
-		Value: token,
-		HttpOnly: true,
-	    })
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    Th.ServePost(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    responseBody, err := ioutil.ReadAll(res.Body) 
-	    if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	    }
-
-	    if string(responseBody) != ts {
-		t.Errorf("expected response to be equal to template string \n%s", string(responseBody))
-	    }
-	})
-    }
 //--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
     postTestCases := []struct{
@@ -525,6 +453,9 @@ func TestServePost(t *testing.T) {
     }
 }
 
+
+// FIX ME: not working
+
 func TestServeLogin(t *testing.T) {
     if err := start(); err != nil {
 	t.Errorf("expected no error, got %v", err)
@@ -546,17 +477,13 @@ func TestServeLogin(t *testing.T) {
 	t.Errorf("Expected no errors, got %v", err)
     }
 
-    getTestCases := []struct{
-	name 	string
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.LoginData
-    } {
+    getTestCases := []getCase {
 	{
 	    name: "get with no errors",
+	    req: httptest.NewRequest(http.MethodGet, "/login", nil),
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("login"),
-	    data: models.LoginData{
+	    te_data: models.LoginData{
 		Name: "",
 		Password: "",
 		Errors: [2]models.FormError{
@@ -567,29 +494,7 @@ func TestServeLogin(t *testing.T) {
 	},
     }
 
-    for _, tc := range getTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodGet, "/login", nil)
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    Th.ServeLogin(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    responseBody, err := ioutil.ReadAll(res.Body) 
-	    if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	    }
-
-	    if string(responseBody) != ts {
-		t.Errorf("expected response to be equal to template string \n%s", string(responseBody))
-	    }
-	})
-    }
+    testGetCases(t, getTestCases, Th.ServePost)
 //--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
     postTestCases := []struct{
@@ -710,17 +615,26 @@ func TestServeEdit(t *testing.T) {
 
     article := articles[0]
 
-    getTestCases := []struct{
-	name 	string
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.EditData
-    } {
+    getReq := httptest.NewRequest(http.MethodGet, "/edit/" + strconv.Itoa(int(article.ArticleID)), nil);
+
+    token, err := auth.NewToken(1)
+    if err != nil {
+	t.Errorf("Expected no errors, got %v", err)
+    }
+
+    getReq.AddCookie(&http.Cookie{
+	Name: "auth",
+	Value: token,
+	HttpOnly: true,
+    })
+
+    getTestCases := []getCase {
 	{
 	    name: "get with no errors",
+	    req: getReq,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("edit"),
-	    data: models.EditData{
+	    te_data: models.EditData{
 		Id: int(article.ArticleID),
 		Title: article.Title,
 		Content: article.Content,
@@ -732,39 +646,8 @@ func TestServeEdit(t *testing.T) {
 	},
     }
 
-    for _, tc := range getTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodGet, "/edit/" + strconv.Itoa(int(article.ArticleID)), nil)
+    testGetCases(t, getTestCases, Th.ServeEdit)
 
-	    token, err := auth.NewToken(1)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-	    req.AddCookie(&http.Cookie{
-		Name: "auth",
-		Value: token,
-		HttpOnly: true,
-	    })
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    Th.ServeEdit(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    responseBody, err := ioutil.ReadAll(res.Body) 
-	    if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	    }
-
-	    if string(responseBody) != ts {
-		t.Errorf("expected response to be equal to template string response body\n%s\nts\n%s", string(responseBody), ts)
-	    }
-	})
-    }
 //--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
     postTestCases := []struct{
@@ -878,55 +761,31 @@ func TestServeDelete(t *testing.T) {
 
     article := articles[0]
 
-    getTestCases := []struct{
-	name 	string
-	w	*httptest.ResponseRecorder
-	te	*template.Template
-	data	models.DeleteData
-    } {
+    getReq := httptest.NewRequest(http.MethodGet, "/delete/" + strconv.Itoa(int(article.ArticleID)), nil)
+
+    token, err := auth.NewToken(1)
+    if err != nil {
+	t.Errorf("Expected no errors, got %v", err)
+    }
+    getReq.AddCookie(&http.Cookie{
+	Name: "auth",
+	Value: token,
+	HttpOnly: true,
+    })
+
+    getTestCases := []getCase {
 	{
 	    name: "get with no errors",
+	    req: getReq,
 	    w: httptest.NewRecorder(), 
 	    te: utils.Serve("delete"),
-	    data: models.DeleteData{
+	    te_data: models.DeleteData{
 		Article: article,
 	    },
 	},
     }
 
-    for _, tc := range getTestCases {
-	t.Run(tc.name, func(t *testing.T){
-	    req := httptest.NewRequest(http.MethodGet, "/delete/" + strconv.Itoa(int(article.ArticleID)), nil)
-
-	    token, err := auth.NewToken(1)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-	    req.AddCookie(&http.Cookie{
-		Name: "auth",
-		Value: token,
-		HttpOnly: true,
-	    })
-
-	    ts, err := stringTemplate(tc.te, tc.data)
-	    if err != nil {
-		t.Errorf("Expected no errors, got %v", err)
-	    }
-
-	    Th.ServeDelete(tc.w, req)
-	    res := tc.w.Result()
-	    defer res.Body.Close()
-
-	    responseBody, err := ioutil.ReadAll(res.Body) 
-	    if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	    }
-
-	    if string(responseBody) != ts {
-		t.Errorf("expected response to be equal to template string response body\n%s\nts\n%s", string(responseBody), ts)
-	    }
-	})
-    }
+    testGetCases(t, getTestCases, Th.ServeDelete)
 //--data-raw 'title=a+new+post&comment=this+is+the+comment+for+the+new+post'
 
     postTestCases := []struct{
@@ -994,3 +853,10 @@ func TestServeDelete(t *testing.T) {
     }
 }
 
+
+/*
+
+MANAGE
+LOGOUT
+
+*/
