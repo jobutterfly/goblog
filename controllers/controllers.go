@@ -29,11 +29,8 @@ func (h *Handler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 
 	articles, err := h.q.GetArticles(context.Background())
 	if err != nil {
-	    log.Fatal(err)
-	    /*
 	    http.Redirect(w, r, "/error/" + strconv.Itoa(http.StatusInternalServerError), http.StatusSeeOther)
 	    return
-	    */
 	}
 
 	data := models.IndexData{
